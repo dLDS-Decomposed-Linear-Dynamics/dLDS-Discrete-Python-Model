@@ -722,11 +722,11 @@ def update_f_all(latent_dyn,F,coefficients,step_f, normalize = False, acumulated
   if action_along_time == 'mean':
     
     all_grads = create_ci_fi_xt(latent_dyn,F,coefficients)
-    new_f_s = [norm_mat(f_i-2*step_f*norm_mat(np.mean(all_grads[:,:,:]*np.reshape(coefficients[i,:], [1,1,-1]), 2),to_norm = normalize),to_norm = normalize_eig ) for i,f_i in enumerate(F)] 
+    new_f_s = [norm_mat(f_i+2*step_f*norm_mat(np.mean(all_grads[:,:,:]*np.reshape(coefficients[i,:], [1,1,-1]), 2),to_norm = normalize),to_norm = normalize_eig ) for i,f_i in enumerate(F)] 
   elif action_along_time == 'median':
     all_grads = create_ci_fi_xt(latent_dyn,F,coefficients)
             
-    new_f_s = [norm_mat(f_i-2*step_f*norm_mat(np.median(all_grads[:,:,:]*np.reshape(coefficients[i,:], [1,1,-1]), 2),to_norm = normalize),to_norm = normalize_eig ) for i,f_i in enumerate(F)] 
+    new_f_s = [norm_mat(f_i+2*step_f*norm_mat(np.median(all_grads[:,:,:]*np.reshape(coefficients[i,:], [1,1,-1]), 2),to_norm = normalize),to_norm = normalize_eig ) for i,f_i in enumerate(F)] 
     
   else:
     raise NameError('Unknown action along time. Should be mean or median')
