@@ -48,9 +48,8 @@ Where:
 ## Installation
 
 ```bash
-git clone hhttps://github.com/NogaMudrik/dLDS_OOP
-cd dLDS
-pip install -r requirements.txt
+git clone https://github.com/NogaMudrik/dLDS-Discrete-Python-Model
+cd dlds
 ```
 
 **Dependencies:** numpy, scipy, matplotlib, tqdm, pylops (optional but recommended)
