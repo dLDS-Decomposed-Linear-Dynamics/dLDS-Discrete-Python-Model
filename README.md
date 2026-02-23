@@ -1,202 +1,330 @@
-_The discrete part of the dLDS model described at:_
+# dLDS: Decomposed Linear Dynamical Systems
 
-**Mudrik, N., Chen, Y., Yezerets, E., Rozell, C. J., & Charles, A. S. (2024). Decomposed linear dynamical systems (dlds) for learning the latent components of neural dynamics. Journal of Machine Learning Research, 25(59), 1-44. [link](https://www.jmlr.org/papers/v25/23-0777.html)**
+A Python package for learning **Decomposed Linear Dynamical Systems** from time series data.
 
-Learning interpretable representations of neural dynamics at a population level is a crucial first step to understanding how neural activity patterns over time relate to perception and behavior. Models of neural dynamics often focus on either low-dimensional projections of neural activity, or on learning dynamical systems that explicitly relate to the neural state over time. We discuss how these two approaches are interrelated by considering dynamical systems as representative of flows on a low-dimensional manifold. Building on this concept, we propose a new decomposed dynamical system model that represents complex nonstationary and nonlinear dynamics of time-series data as a sparse combination of simpler, more interpretable components. The decomposed nature of the dynamics generalizes over previous switched approaches and enables modeling of overlapping and non-stationary drifts in the dynamics. We further present a dictionary learning- driven approach to model fitting, where we leverage recent results in tracking sparse vectors over time. We demonstrate that our model can learn efficient representations and smoothly transition between dynamical modes in both continuous-time and discrete-time examples. We show results on low-dimensional linear and nonlinear attractors to demonstrate that decomposed systems can well approximate nonlinear dynamics. Additionally, we apply our model to C. elegans data, illustrating a diversity of dynamics that is obscured when classified into discrete states.
+📄 **Paper:** <a href="https://jmlr.org/papers/volume25/23-0777/23-0777.pdf" target="_blank">Decomposed Linear Dynamical Systems (dLDS) for learning the latent components of neural dynamics</a>
 
+📧 **Contact:** nmudrik1 [at] jhu.edu 
 
+**Citation:**
+If you use this code, please cite:
 
-# Outine:
-## A) Installation Instructions
-## B) Main Model Figues
-## C) Package and functions description
-## D) Dependencies and Package Versions
+```bibtex
+@article{mudrik2024decomposed,
+  title={Decomposed linear dynamical systems (dlds) for learning the latent components of neural dynamics},
+  author={Mudrik, Noga and Chen, Yenho and Yezerets, Eva and Rozell, Christopher J and Charles, Adam S},
+  journal={Journal of Machine Learning Research},
+  volume={25},
+  number={59},
+  pages={1--44},
+  year={2024}
+}
+ ``` 
 
-=================================================================
-# A) Installation Instructions
-## 1) Option 1: via PyPi
-Our discrete model can also be pip-installed using the dlds_discrete package, as described at https://pypi.org/project/dLDS-discrete-2022/
-   1. Make sure you have _os_, _pickle_, and _itertools_ installed in your python directory
-   2. In the cmd, write:  _!pip install dLDS-discrete-2022_
-   2. Import the package: _import dlds_discrete_
-   3. Import all functions in the main_functions script: _from dlds_discrete.main_functions import *_
-   4. Call the desired function, as described below (in section (C)) 
+## What is dLDS?
 
+dLDS decomposes complex dynamics into a weighted combination of simple basis operators:
 
-If you prefer to use the GitHub code, the main code is located at:  _\dLDS-Discrete-Python-Model\dLDS_discrete\dlds_discrete_, where:
-1) **'main_functions'** = Python script with the model and plotting functions.
-2) **'create_params'**  = Python script to define default parameters
-3) **'train_discrete_model_example'** - an example for how to train our model
+$$\mathbf{y}_t = \mathbf{D} \mathbf{x}_t$$
 
-The Python notebook at the home directory (**discrete_dlds_visualization.ipynb**) may help you understand how to use the code. 
-
-## 2) Option 2: Direct Download via GitHub Desktop (or pip)
-* Open GitHub Desktop → click **"File" → "Clone Repository"**, then enter the repo URL or find it under the GitHub tab.
-* You can then run **`train_discrete_model_example.py`**. You may need to modify the data loading section to use your own data.
+$$
+\mathbf{x}_{t+1} = \left( \sum_{m} c_{m,t} \cdot f_m \right) \mathbf{x}_t
+$$
 
 
+Where:
+- $\mathbf{y}_t \in \mathbb{R}^{N}$ — observed neural activity ($N$ = number of neurons)
+- $\mathbf{Y} \in \mathbb{R}^{N \times T}$ — full observation matrix ($T$ = number of time steps)
+- $\mathbf{x}_t \in \mathbb{R}^{p}$ — latent state at time $t$
+- $\mathbf{X} \in \mathbb{R}^{p \times T}$ — full latent state matrix
+- $D \in \mathbb{R}^{N \times p}$ — observation/mixing matrix
+- $F_m \in \mathbb{R}^{p \times p}$ — learned sub-dynamics  ($M$ matrices)
+- $c_{m,t} \in \mathbb{R}$ — the coefficient of subdynamic $m$ at time $t$
+
+**Use cases:** Neural data analysis, time series decomposition, dynamical systems discovery.
+
+---
+
+## Installation
+
+```bash
+git clone hhttps://github.com/NogaMudrik/dLDS_OOP
+cd dLDS
+pip install -r requirements.txt
+```
+
+**Dependencies:** numpy, scipy, matplotlib, tqdm, pylops (optional but recommended)
+
+---
+
+## Quick Start
+
+### Option 1: Direct observation (you observe the state directly)
+
+```python
+from dlds import Direct_dLDS
+
+# Load your data: shape (n_dims, T) or list of arrays
+data = your_data  # e.g., shape (10, 500)
+
+# Create and fit model
+model = Direct_dLDS(num_subdyns=3)
+result = model.fit(data)
+
+# Get results
+F_operators = result.F                    # List of learned F matrices
+coefficients = result.dynamic_coefficients # Learned c(t)
+
+# Reconstruct
+x_hat = model.reconstruct(data)
+```
+
+### Option 2: Indirect observation (you observe through a mixing matrix D)
+
+```python
+from dlds import dLDS_with_latents
+
+# Load observations: shape (obs_dim, T)
+y = your_observations  # e.g., shape (100, 500)
+
+# Create and fit model
+model = dLDS_with_latents(num_subdyns=3, latent_dim=10)
+result = model.fit(y)
+
+# Get results
+F_operators = result.F       # Dynamics operators
+D_matrix = result.D          # Observation matrix
+x_latents = result.x         # Inferred latent states
+coefficients = result.dynamic_coefficients
+```
+
+### Option 3: Try the example notebook
+
+See **`lorenz_example.ipynb`** for a complete walkthrough using Lorenz attractor data.
+
+---
+
+## Data Format
+
+| Format | Shape | Description |
+|--------|-------|-------------|
+| Single trial | `(n_dims, T)` | 2D numpy array |
+| Multiple trials | `[(n_dims, T1), (n_dims, T2), ...]` | List of 2D arrays |
+
+**Notes:**
+- Rows = dimensions/features
+- Columns = time points
+- Variable trial lengths are supported
+- Data is automatically centered if `center_data=True`
+
+---
+
+## Key Parameters
+
+### Essential
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `num_subdyns` | 3 | Number of dynamics operators (M). More = more complex dynamics |
+| `solver` | `'spgl1'` | Coefficient solver. Options: `'spgl1'`, `'lasso'`, `'inv'`, `'nnls'` |
+| `reg_term` | 0.1 | Sparsity regularization. Higher = sparser coefficients |
+
+### Training
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `max_iter` | 5000 | Maximum training iterations |
+| `step_f` | 10.0 | Learning rate for F update |
+| `gd_decay` | 1.0 | Learning rate decay (set < 1 to decay, e.g., 0.99) |
+| `smooth_term` | 0.0 | Smoothness penalty on coefficients (higher = smoother c) |
+
+### Convergence
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `max_error_relative` | 0.01 | Convergence threshold (fraction of data variance) |
+| `use_relative_error` | True | Use relative error threshold |
+
+### Tips
+
+- **Spiky coefficients?** Increase `smooth_term` (try 0.1 - 1.0)
+- **Too sparse?** Increase `reg_term` for spgl1 (it's a bound, not penalty)
+- **Not converging?** Increase `max_iter`, decrease `step_f`
+- **Overfitting?** Reduce `num_subdyns`
+- **Slow?** Use `solver='inv'` (faster but no sparsity)
+
+---
+
+## Visualization
+
+```python
+from dlds import plot_F, plot_coefficients, plot_reconstruction, plot_error_history
+
+# Plot learned dynamics operators
+plot_F(result.F, path_save='figures/', to_save=True)
+
+# Plot coefficients over time
+plot_coefficients(result.dynamic_coefficients, path_save='figures/', to_save=True)
+
+# Plot original vs reconstructed
+x_hat = model.reconstruct(data)
+plot_reconstruction(data, x_hat, dims=[0, 1, 2], path_save='figures/', to_save=True)
+
+# Plot training error
+plot_error_history(result.error_history, path_save='figures/', to_save=True)
+
+# Scatter colored by dominant dynamics
+plot_scatter_by_dominant_subdynamics(data, result.dynamic_coefficients)
+```
+
+---
+
+## Accessing Results
+
+```python
+result = model.fit(data)
+
+# Dynamics operators
+result.F                      # List of M matrices, each (p, p)
+result.F[0]                   # First operator
+
+# Coefficients
+result.dynamic_coefficients   # List of arrays, each (M, T-1)
+result.dynamic_coefficients[0] # Coefficients for trial 0
+
+# Combined dynamics: F_t = Σ c_mt * F_m
+F_combined = result.get_combined_F(trial_idx=0)  # Shape (p, p, T-1)
+
+# Training info
+result.error_history          # Error at each iteration
+result.final_error            # Final reconstruction error
+result.converged              # True/False
+result.n_iterations           # Number of iterations run
+
+# Summary
+result.summary()              # Print summary
+```
+
+---
+
+## File Structure
+
+```
+dlds/
+├── __init__.py          # Package exports
+├── config.py            # dLDS_config dataclass (all parameters)
+├── results.py           # dLDS_result dataclass (output container)
+├── direct.py            # Direct_dLDS class (D=I case)
+├── dlds_with_latents.py # dLDS_with_latents class (D≠I case)
+├── solvers.py           # Coefficient solvers (spgl1, lasso, etc.)
+├── utils.py             # Initialization, normalization utilities
+└── vis.py               # Visualization functions
+```
+
+---
+
+## Example: Lorenz Attractor
+
+```python
+from dlds import Direct_dLDS
+from synthetic import generate_dlds_synthetic_data
+
+# Generate Lorenz data
+x, _, _ = generate_dlds_synthetic_data(T=1000, structured='lorenz')
+
+# Fit model
+model = Direct_dLDS(
+    num_subdyns=5,
+    solver='spgl1',
+    reg_term=1.0,
+    smooth_term=0.5,
+    step_f=5.0,
+    max_iter=500
+)
+result = model.fit(x)
+
+# Visualize
+from dlds import plot_scatter_by_dominant_subdynamics
+plot_scatter_by_dominant_subdynamics(x, result.dynamic_coefficients)
+```
+
+See **`lorenz_example.ipynb`** for the full example with visualizations.
+
+---
+
+## Q & A 
+**Q: How to make coefficients more sparse?**
+- Avoid `solver='inv'` (no sparsity at all)
+- Use `solver='spgl1'` (recommended)
+- For spgl1: smaller `reg_term` = more sparse
+- For lasso: larger `reg_term` = more sparse
+
+**Q: How to make coefficients smoother over time?**
+- Increase `smooth_term` (try 0.1, 0.5, 1.0)
+- Default is 0 (no smoothness)
+
+**Q: Model not converging?**
+- Increase `max_iter` (e.g., 5000 or 10000)
+- Decrease `step_f` (e.g., 1.0 instead of 10.0)
+- Enable decay: `gd_decay=0.99`
+
+**Q: Error too high?**
+- Increase `num_subdyns` (more operators = better fit)
+- Decrease `reg_term` (less sparsity = better fit)
+- Run more iterations
+
+**Q: Training too slow?**
+- Use `solver='inv'` (fastest, but no sparsity)
+- Reduce `max_iter`
+- Reduce `num_subdyns`
+
+**Q: How many `num_subdyns` to use?**
+- Start with 3-5
+- More = better reconstruction but slower and risk of overfitting
+- Less = faster but may miss complex dynamics
+
+**Q: Which solver to use?**
+| Solver | Speed | Sparsity | When to use |
+|--------|-------|----------|-------------|
+| `spgl1` | Medium | Yes | Default, recommended |
+| `lasso` | Medium | Yes | Alternative to spgl1 |
+| `inv` | Fast | No | Quick tests, no sparsity needed |
+| `nnls` | Medium | No | When coefficients must be positive |
+
+**Q: What does `reg_term` do?**
+- Controls sparsity of coefficients
+- For `spgl1`: it's a bound (higher = less sparse)
+- For `lasso`: it's a penalty (higher = more sparse)
+- Start with 0.1, adjust based on results
+
+**Q: Data not fitting well?**
+- Check data format: should be `(n_dims, T)` not `(T, n_dims)`
+- Try `center_data=True`
+- Increase `num_subdyns`
+- Check for NaNs in your data
+
+**Q: How to check if model is good?**
+```python
+# Check final error
+print(result.final_error)
+
+# Compare to data variance
+print("Error / Variance:", result.final_error / np.var(data))
+
+# Visual check
+plot_reconstruction(data, model.reconstruct(data))
+```
+
+**Q: Can I use variable length trials?**
+- Yes! Pass as list: `[trial1, trial2, trial3]`
+- Each trial can have different T
+- All trials must have same `n_dims`
+
+**Q: What if I only observe through sensors (not the state directly)?**
+- Use `dLDS_with_latents` instead of `Direct_dLDS`
+- Set `latent_dim` to your desired latent dimension
+- Model learns both dynamics F and observation matrix D
+
+---
 
 
-=================================================================
-# B) Main Model Figures
-
-### Model descrition
-![image](https://user-images.githubusercontent.com/90283200/171279434-f27ec55e-e34c-46c1-bb9a-7efb5b3c018c.png)
- 
-### Lorenz - visualization of coefficients smooth temporal evoulution
-![image](https://user-images.githubusercontent.com/90283200/171278476-3bb4fa4b-935e-4334-851e-4a9ede69fa3c.png)
-
-
-### Fitzhugh Nagumo model - dLDS vs rSLDS
-![image](https://user-images.githubusercontent.com/90283200/171278183-0c1866b8-34a5-4a4c-9d26-9cb4f5ee7764.png)
-
-
-### Lorenz - dLDS vs rSLDS
-![image](https://user-images.githubusercontent.com/90283200/171278344-f0585304-cee0-499c-af1c-62aaa67028ec.png)
-
-### _C. elegans_
-![image](https://user-images.githubusercontent.com/90283200/171279482-fb59ffa1-8755-475a-a97b-c161afc615a1.png)
-
-
-=================================================================
-# C) Package and functions description
-
-## Main Useful Functions:
-
-### 1. create_dynamics:
-_create sample dynamics_
-
-
-
-**create_dynamics**_(type_dyn = 'cyl', max_time = 1000, dt = 0.01, params_ex = {'radius':1, 'num_cyls': 5, 'bias':0,'exp_power':0.2})_
-
-#### Detailed Description:
-      Create ground truth dynamics. 
-      Inputs:
-          type_dyn          = Can be 'cyl', 'lorenz','FHN', 'multi_cyl', 'torus', 'circ2d', 'spiral'
-          max_time          = integer. Number of time points for the dynamics. Relevant only if data is empty;
-          dt                = time interval for the dynamics.
-          params_ex         = dictionary of parameters for the dynamics.  {'radius':1, 'num_cyls': 5, 'bias':0,'exp_power':0.2}):
-    
-      
-      Outputs:
-          dynamics: k X T matrix of the dynamics 
-
-
-
-
-### 2. train_model_include_D:
-_main function to train the model._
-
-**train_model_include_D**_(max_time = 500, dt = 0.1, dynamics_type = 'cyl',num_subdyns = 3, 
-                          error_reco = np.inf,  data = [], step_f = 30, GD_decay = 0.85, max_error = 1e-3, 
-                          max_iter = 3000, F = [], coefficients = [], params= {'update_c_type':'inv','reg_term':0,'smooth_term':0}, 
-                          epsilon_error_change = 10**(-5), D = [], x_former =[], latent_dim = None, include_D  = False,step_D = 30, reg1=0,reg_f =0 , 
-                          max_data_reco = 1e-3,  sigma_mix_f = 0.1,  action_along_time = 'median', to_print = True, seed = 0, seed_f = 0, 
-                          normalize_eig  = True,  params_ex = {'radius':1, 'num_cyls': 5, 'bias':0,'exp_power':0.2}, 
-                          init_distant_F = False,max_corr = 0.1, decaying_reg = 1, other_params_c={}, include_last_up = False)_
-
-#### Detailed Description:
-      max_time         = Number of time points for the dynamics. Relevant only if data is empty;
-      dt               =  time interval for the dynamics
-      dynamics_type    = type of the dynamics. Can be 'cyl', 'lorenz','FHN', 'multi_cyl', 'torus', 'circ2d', 'spiral'
-      num_subdyns      = number of sub-dynamics
-      error_reco       = intial error for the reconstruction (do not touch)
-      data             = if one wants to use a pre define groud-truth dynamics. If not empty - it overwrites max_time, dt, and dynamics_type
-      step_f           = initial step size for GD on the sub-dynamics
-      GD_decay         = Gradient descent decay rate
-      max_error        = Threshold for the model error. If the model arrives at a lower reconstruction error - the training ends.
-      max_iter         = # of max. iterations for training the model
-      F                = pre-defined sub-dynamics. Keep empty if random.
-      coefficients     = pre-defined coefficients. Keep empty if random.
-      params           = dictionary that includes info about the regularization and coefficients solver. e.g. {'update_c_type':'inv','reg_term':0,'smooth_term':0}
-      epsilon_error_change = check if the sub-dynamics do not change by at least epsilon_error_change, for at least 5 last iterations. Otherwise - add noise to f
-      D                = pre-defined D matrix (keep empty if D = I)
-      latent_dim       =  If D != I, it is the pre-defined latent dynamics.
-      include_D        = If True -> D !=I; If False -> D = I
-      step_D           = GD step for updating D, only if include_D is true
-      reg1             = if include_D is true -> L1 regularization on D
-      reg_f            = if include_D is true ->  Frobenius norm regularization on D
-      max_data_reco    = if include_D is true -> threshold for the error on the reconstruction of the data (continue training if the error (y - Dx)^2 > max_data_reco)
-      sigma_mix_f            = std of noise added to mix f
-      action_along_time      = the function to take on the error over time. Can be 'median' or 'mean'
-      to_print               = to print error value while training? (boolean)
-      seed                   = random seed
-      seed_f                 = random seed for initializing f
-      normalize_eig          = whether to normalize each sub-dynamic by dividing by the highest abs eval
-      params_ex              = parameters related to the creation of the ground truth dynamics. e.g. {'radius':1, 'num_cyls': 5, 'bias':0,'exp_power':0.2}
-      init_distant_F         = when initializing F -> make sure that the correlation between each pair of {f}_i does not exeed a threshold
-      max_corr               = max correlation between each pair of initial sub-dyns (relevant only if init_distant_F is True)
-      decaying_reg           = decaying factor for the l1 regularization on the coefficients. If 1 - there is no decay. (should be a scalar in (0,1])
-      other_params_c         = additional parameters for the update step of c
-      include_last_up        = add another update step of the coefficients at the end
-      
-* example call (for Lorenz, w. 3 operators):       train_model_include_D(10, 0.01, 'lorenz', 3, GD_decay = 0.99)
-
-
-
-### 3. create_reco: 
-_create the dynamics reconstruction using the operators and coefficients obtained by dLDS (F, c)._
-
-
-**create_reco**_(latent_dyn,coefficients, F, type_find = 'median',min_far =10, smooth_coeffs = False,
-          smoothing_params = {'wind':5})_
-#### Detailed Description:                
-                  This function creates the reconstruction 
-                  Inputs:
-                      latent_dyn   = the ground truth latent dynamics
-                      coefficients = the operators coefficients ({$c(t)_i})
-                      F            = a list of transport operators (a list with M transport operators, 
-                                                                    each is a square matrix, kXk, where k is the latent dynamics
-                                                                    dimension )
-                      type_find    = 'median'
-                      min_far      = 10
-                      smooth_coeffs= False
-                      smoothing_params = {'wind':5}
-
-                  Outputs:
-                      cur_reco    = dLDS reconstruction of the latent dynamics
-                      
-
-
-### 4. visualize_dyn:
-_visualization of the dynamics, with various coloring options_ 
-     
-
-**visualize_dyn**_(dyn,ax = [], params_plot = {},turn_off_back = False, marker_size = 10, include_line = False, 
-            color_sig = [],cmap = 'cool', return_fig = False, color_by_dominant = False, coefficients =[],
-            figsize = (5,5),colorbar = False, colors = [],vmin = None,vmax = None, color_mix = False, alpha = 0.4,
-            colors_dyns = np.array(['r','g','b','yellow']), add_text = 't ', text_points = [],fontsize_times = 18, 
-            marker = "o",delta_text = 0.5, color_for_0 =None, legend = [],fig = [],return_mappable = False)_
-#### Detailed Description:                
-              Inputs:
-                   dyn          = dynamics to plot. Should be a np.array with size k X T
-                   ax           = the subplot to plot in. (optional). If empty list -> the function will create a subplot
-                   params_plot  = additional parameters for the plotting (optional). Can include plotting-related keys like xlabel, ylabel, title, etc.
-                   turn_off_back= disable backgroud of the plot? (optional). Boolean
-                   marker_size  = marker size of the plot (optional). Integer
-                   include_line = add a curve to the plot (in addition to the scatter plot). Boolean
-                   color_sig    = the color signal. 
-                                      If empty and color_by_dominant is true - color by the dominant dynamics. 
-                                      If empty and not color_by_dominant - color by time.
-                   cmap         = color map
-                   colors       = if not empty -> pre-defined colors for the different sub-dynamics. 
-                                  If empty -> colors are according to the cmap.
-                   color_mix    = relevant only if  color_by_dominant is True. In this case the colors need to be in the form of [r,g,b]
-               Output:   
-                   h (only if return_fig) -> returns the figure   
-                
-
-# D) Dependencies and Package Versions:
-This project was developed and tested with the following package versions:
-   - matplotlib==3.8.2
-   - numpy==1.23.5
-   - scipy==1.8.0
-   - pandas==1.5.0
-   - webcolors==1.11.1
-   - seaborn==0.11.2
-   - colormap==1.0.4
-   - sklearn==1.0.2
-   - pylops==1.18.2
-   - dill==0.3.4
-   - mat73==0.59
